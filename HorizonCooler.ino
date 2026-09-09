@@ -1,40 +1,56 @@
 /* =================================================================================
-   =================================================================================
-   [ UNDANG-UNDANG PENGEMBANGAN HORIZON COOLER (RULES & CODING DIRECTIVES) ]
-   =================================================================================
+   [ UNDANG-UNDANG PENGEMBANGAN FIRMWARE HORIZON COOLER ]
 
-   --- BAB I: KEDISIPLINAN SINTAKS & KOMPILASI MOBILE ---
-   PASAL 1: Wajib melakukan simulasi mental alur eksekusi sebelum memodifikasi kode.
-   PASAL 2: Kurung kurawal pembuka { dan penutup } WAJIB berada di baris tersendiri (Vertikal Murni).
-   PASAL 3: Kode WAJIB murni ASCII, bebas ketergantungan asing, agar 100% lolos kompilasi via ArduinoDroid di Android.
-   PASAL 4: DILARANG DITULIS komentar apapun di dalam tubuh fungsi C++ untuk menjaga kebersihan kompilasi.
+   PASAL 1  : Firmware wajib menjaga kompatibilitas board, library, protokol, dan
+              hardware yang sudah digunakan.
+   PASAL 2  : Setiap perubahan harus diuji untuk compile/syntax, BLE, SYNC,
+              voltage, Adaptive Mode, sensor, RGB, OTA, dan boot state.
+   PASAL 3  : Komentar diperbolehkan untuk menjelaskan safety, state machine,
+              timing, protokol, dan workaround penting.
+   PASAL 4  : Buffer BLE/command wajib memiliki batas ukuran dan divalidasi.
+   PASAL 5  : Data konfigurasi boleh disimpan di Preferences/NVS; data runtime
+              dan safety tidak boleh bergantung hanya pada NVS.
+   PASAL 6  : Penulisan NVS wajib ditunda/debounce dan tidak boleh setiap loop.
+   PASAL 7  : Boot state harus aman: voltage 5V dan Adaptive Mode OFF.
+   PASAL 8  : Hindari delay() pada loop utama; gunakan millis(), state machine,
+              timeout, callback, dan yield() bila diperlukan.
+   PASAL 9  : BLE RX menerima command aplikasi; BLE TX mengirim status/telemetry.
+   PASAL 10 : Command invalid atau tidak dikenal wajib diabaikan dengan aman.
+   PASAL 11 : Parser BLE harus tahan terhadap CR/LF, fragmentasi, multi-command,
+              dan buffer overflow.
+   PASAL 12 : SYNC wajib menggunakan <SYNC_START> ... <SYNC_END>.
+   PASAL 13 : Setelah SYNC, gunakan Delta Sync untuk perubahan yang relevan.
+   PASAL 14 : Sensor NTC harus divalidasi dan fault wajib mengarah ke kondisi aman.
+   PASAL 15 : Manual Mode tidak boleh diubah algoritma temperatur saat Adaptive OFF.
+   PASAL 16 : Adaptive Mode boleh menurunkan/mengatur voltage demi keselamatan.
+   PASAL 17 : Setiap transisi voltage wajib memiliki dead-time hardware yang aman.
+   PASAL 18 : 9V battery threshold bukan setting terpisah; 9V adalah zona di antara
+              batas 5V dan 12V.
+   PASAL 19 : Batas battery temperature configurable hanya 10C sampai 60C.
+   PASAL 20 : Hubungan threshold wajib selalu: LB5 < LB12, sedangkan LB9 dihitung
+              otomatis sebagai titik tengah dan tidak dapat diedit.
+   PASAL 21 : Profile Adaptive 0 menggunakan proteksi temperatur internal.
+   PASAL 22 : Profile Adaptive 1 menggunakan battery temperature dari aplikasi
+              melalui command BTP:x.x.
+   PASAL 23 : Jika battery temperature tidak tersedia, Profile 1 wajib memilih
+              kondisi voltage yang lebih aman.
+   PASAL 24 : Battery temperature dari aplikasi tidak boleh dikirim terus-menerus;
+              cukup saat state zona 5V/9V/12V berubah atau saat sinkronisasi awal.
+   PASAL 25 : Overheat protection memiliki prioritas tertinggi.
+   PASAL 26 : Hysteresis wajib digunakan agar voltage tidak berosilasi akibat noise.
+   PASAL 27 : OTA harus memiliki timeout, validasi, dan safe fallback.
+   PASAL 28 : Feedback LED tidak boleh menghambat BLE/sensor/voltage control.
+   PASAL 29 : Safety hardware lebih tinggi daripada kenyamanan UI.
+   PASAL 30 : Jika state tidak diketahui, pilih kondisi hardware paling aman.
+   PASAL 31 : Perubahan firmware, sekecil apa pun, WAJIB menaikkan FIRMWARE_VERSION.
+   PASAL 32 : Format versi resmi adalah V<major>.<minor>.
+   PASAL 33 : Jangan memperbaiki satu fitur dengan membuat regresi fitur lain.
 
-   --- BAB II: MANAJEMEN MEMORI, BLE & NV-RAM ---
-   PASAL 5: Dilarang menggunakan kelas objek 'String' pada BLE/NTC; wajib 'char array'.
-   PASAL 6: Nilai NV-RAM (Mode, Brightness, Limit Suhu, Status RGB) hanya ditulis jika terjadi perubahan dan wajib ditunda minimal 2000 ms.
-   PASAL 7: Status Volatil (Voltase & AI Mode) DILARANG disimpan di NV-RAM. Sistem wajib boot-up default di posisi teraman: 5V dan AI OFF.
-   
-   --- BAB III: KERNEL ANTI-BLOCKING & SINKRONISASI ---
-   PASAL 8: DILARANG KERAS menggunakan fungsi delay() di seluruh baris kode. Semua jeda WAJIB menggunakan millis() dan yield() agar sistem RTOS/BLE tidak membeku.
-   PASAL 9: Saat mendapat perintah "SYNC" dari App, ESP32 WAJIB menembakkan seluruh data dalam format berpagar <SYNC_START> ... <SYNC_END> agar UI terisi serempak tanpa lag.
-   PASAL 10: Setelah sinkronisasi awal, pembaruan data HANYA dikirim jika ada perubahan nilai fisik (Delta-Sync).
+   [ TARGET PERILAKU BATTERY TEMPERATURE ]
+       Battery Temp < LB5        -> maksimum 5V
+       LB5 <= Battery Temp < LB12 -> 9V
+       Battery Temp >= LB12       -> 12V
 
-   --- BAB IV: KELISTRIKAN & PROTEKSI HARDWARE ---
-   PASAL 11: JEDA INDUKSI MUTLAK. Setiap transisi voltase WAJIB diputus ke 5V (LOW-LOW) selama 150 ms sebelum target aktif guna meredam inrush current MP2315.
-   PASAL 12: Jika Suhu NTC mencapai Limit Hot (default 45C), AI Mode WAJIB memotong daya ke 5V. Pemulihan naik voltase hanya jika suhu turun 5C di bawah batas, dievaluasi per 5 detik.
-   PASAL 13: Mode Manual (AI OFF) MENGUNCI voltase pilihan pengguna tanpa campur tangan sistem suhu otomatis.
-   PASAL 14: Jika NTC putus/korslet (<50mV atau >3250mV), injeksikan nilai 999C agar sistem langsung memotong daya demi keselamatan.
-
-   --- BAB V: SISTEM VISUAL & KEDIPAN KONDISI OTA ---
-   PASAL 15: Seluruh kedipan feedback wajib menggunakan manipulasi buffer bit langsung (playBlink1000) tanpa memanggil setMode WS2812FX.
-   PASAL 16: ATURAN KEDIPAN KONDISI OTA:
-       - WiFi Terhubung Sukses : Kedip Biru 1000 ms (250 ms Nyala / 250 ms Mati x 2) -> Padam -> Eksekusi Update OTA.
-       - WiFi Gagal Terhubung   : Kedip Merah 1000 ms (250 ms Nyala / 250 ms Mati x 2) -> Standby.
-       - Update OTA Berhasil    : Kedip Hijau 1000 ms (250 ms Nyala / 250 ms Mati x 2) -> ESP.restart().
-       - Update OTA Gagal       : Kedip Merah 1000 ms (250 ms Nyala / 250 ms Mati x 2) -> Standby.
-
-   --- BAB VI: PROTOKOL VERSI FIRMWARE (1 DESIMAL) ---
-   PASAL 17: Format versi HANYA menggunakan 1 angka di belakang titik (Contoh: V2.2). Update besar mengubah angka depan (Contoh: V2.0 -> V3.0).
    =================================================================================
 */
 
@@ -52,7 +68,7 @@
 #include <BLE2902.h>        
 #include <math.h>           
 
-#define FIRMWARE_VERSION "V2.2"
+#define FIRMWARE_VERSION "V2.4"
 
 #define PIN_NTC         0       
 #define PIN_BTN_LEFT    5       
@@ -164,6 +180,9 @@ volatile bool isBleClientConnected = false;
 volatile bool bleCmdSendAiStatus   = false; 
 volatile bool triggerCloudOta      = false; 
 volatile bool isOtaStandby         = false; 
+volatile uint8_t aiModeType        = 0; 
+volatile float phoneBatteryTemp    = -999.0f;
+volatile int   batteryProtectionLevel = -1; 
 
 uint8_t       ledModeIndex              = 0;     
 uint8_t       currentBrightness         = 255;   
@@ -213,6 +232,7 @@ int lastSentBat5 = -1;
 int lastSentBat9 = -1;
 int lastSentBat12 = -1;
 unsigned long lastTempSyncTime = 0;
+unsigned long lastBleDeltaCheckTime = 0;
 
 void cleanBuffer(char* dest, const char* src, size_t maxLen);
 uint8_t getHwBrightness(uint8_t appBrightness);
@@ -237,6 +257,8 @@ void resumeBle();
 void disableAllRadios();                       
 void enableBleSignal();                        
 void performCloudOTA();
+int calculateAiMaxVoltage();
+void sanitizeTempLimits();
 
 void safeYield(unsigned long ms) 
 {
@@ -272,17 +294,10 @@ uint8_t getHwBrightness(uint8_t appBrightness)
 
 void sendInstantSyncData()
 {
+    sanitizeTempLimits();
     if (isBleActive == true && isBleClientConnected == true && globalTxChar != NULL) 
     {
         float displayTemp = currentTemperature;
-        if (displayTemp < 20.0f) 
-        {
-            displayTemp = 20.0f;
-        }
-        if (displayTemp > 50.0f) 
-        {
-            displayTemp = 50.0f;
-        }
 
         const char* voltStr = "5V";
         if (currentVoltage == 1) 
@@ -303,6 +318,7 @@ void sendInstantSyncData()
             "TMP:%.1f\n"
             "VOL:%s\n"
             "AI:%d\n"
+            "AIM:%d\n"
             "LHT:%d\n"
             "LB5:%d\n"
             "LB9:%d\n"
@@ -315,6 +331,7 @@ void sendInstantSyncData()
             displayTemp,
             voltStr,
             isAiModeActive ? 1 : 0,
+            aiModeType,
             limitHot,
             limitBat5v,
             limitBat9v,
@@ -354,14 +371,6 @@ void sendTempToWeb()
     if (isBleActive == true && isBleClientConnected == true && globalTxChar != NULL) 
     {
         float displayTemp = currentTemperature;
-        if (displayTemp < 20.0f) 
-        {
-            displayTemp = 20.0f;
-        }
-        if (displayTemp > 50.0f) 
-        {
-            displayTemp = 50.0f;
-        }
         char tempBuffer[16]; 
         sprintf(tempBuffer, "TMP:%.1f\n", displayTemp); 
         globalTxChar->setValue((uint8_t*)tempBuffer, strlen(tempBuffer)); 
@@ -451,6 +460,7 @@ void sendVersionToWeb()
 
 void sendTempLimitsToWeb()
 {
+    sanitizeTempLimits();
     if (isBleActive == true && isBleClientConnected == true && globalTxChar != NULL) 
     {
         char buf[64];
@@ -580,6 +590,74 @@ void playBlink1000(uint32_t targetColor)
         ws2812fx.show();
         safeYield(250);
     }
+}
+
+int calculateAiMaxVoltage()
+{
+    if (aiModeType == 0)
+    {
+        return 2;
+    }
+
+    if (phoneBatteryTemp < -100.0f)
+    {
+        return 0;
+    }
+
+    if (phoneBatteryTemp < (float)limitBat5v)
+    {
+        return 0;
+    }
+
+    if (phoneBatteryTemp >= (float)limitBat12v)
+    {
+        return 2;
+    }
+
+    return 1;
+}
+
+void sanitizeTempLimits()
+{
+    limitHot = constrain(limitHot, 35, 80);
+
+    limitBat5v = constrain(limitBat5v, 10, 59);
+    limitBat12v = constrain(limitBat12v, 11, 60);
+
+    if (limitBat12v <= limitBat5v)
+    {
+        if (limitBat5v >= 59)
+        {
+            limitBat5v = 59;
+            limitBat12v = 60;
+        }
+        else
+        {
+            limitBat12v = limitBat5v + 1;
+        }
+    }
+
+    limitBat9v = (limitBat5v + limitBat12v) / 2;
+}
+
+int getBatteryProtectionLevel()
+{
+    if (phoneBatteryTemp < -100.0f)
+    {
+        return 0;
+    }
+
+    if (phoneBatteryTemp < (float)limitBat5v)
+    {
+        return 0;
+    }
+
+    if (phoneBatteryTemp >= (float)limitBat12v)
+    {
+        return 2;
+    }
+
+    return 1;
 }
 
 void setupOtaRoutes()
@@ -832,7 +910,7 @@ class BleMsgCallbacks : public BLECharacteristicCallbacks
                         isAiModeActive = true; 
                         bleCmdSendAiStatus = true; 
                         lastAiCheckTime = millis(); 
-                        aiMaxVoltage = 2; 
+                        aiMaxVoltage = calculateAiMaxVoltage(); 
 
                         targetTransitionVoltage  = 0; 
                         isVoltageTransitioning   = true; 
@@ -876,27 +954,71 @@ class BleMsgCallbacks : public BLECharacteristicCallbacks
                         bleCmdSetBrightness = true; 
                     }
                 }
+                else if (strncmp(cmdBuf, "AIM:", 4) == 0)
+                {
+                    int parsedAiMode = atoi(cmdBuf + 4);
+                    if (parsedAiMode == 0 || parsedAiMode == 1)
+                    {
+                        aiModeType = (uint8_t)parsedAiMode;
+                        if (isAiModeActive == true)
+                        {
+                            aiMaxVoltage = calculateAiMaxVoltage();
+                        }
+                    }
+                }
+                else if (strncmp(cmdBuf, "BTP:", 4) == 0)
+                {
+                    float parsedBatteryTemp = atof(cmdBuf + 4);
+                    if (parsedBatteryTemp >= -20.0f && parsedBatteryTemp <= 100.0f)
+                    {
+                        int previousLevel = batteryProtectionLevel;
+                        phoneBatteryTemp = parsedBatteryTemp;
+                        batteryProtectionLevel = getBatteryProtectionLevel();
+
+                        if (isAiModeActive == true && aiModeType == 1)
+                        {
+                            if (batteryProtectionLevel != previousLevel || previousLevel < 0)
+                            {
+                                aiMaxVoltage = calculateAiMaxVoltage();
+                                lastAiCheckTime = 0;
+                            }
+                        }
+                    }
+                }
                 else if (strncmp(cmdBuf, "LHT:", 4) == 0)
                 {
                     limitHot = atoi(cmdBuf + 4);
+                    sanitizeTempLimits();
+                    if (isAiModeActive == true)
+                    {
+                        aiMaxVoltage = calculateAiMaxVoltage();
+                    }
                     pendingTempLimitSave = true;
                     lastTempLimitSaveTime = millis();
                 }
                 else if (strncmp(cmdBuf, "LB5:", 4) == 0)
                 {
                     limitBat5v = atoi(cmdBuf + 4);
+                    sanitizeTempLimits();
+                    if (isAiModeActive == true)
+                    {
+                        aiMaxVoltage = calculateAiMaxVoltage();
+                    }
                     pendingTempLimitSave = true;
                     lastTempLimitSaveTime = millis();
                 }
                 else if (strncmp(cmdBuf, "LB9:", 4) == 0)
                 {
-                    limitBat9v = atoi(cmdBuf + 4);
-                    pendingTempLimitSave = true;
-                    lastTempLimitSaveTime = millis();
+                    sanitizeTempLimits();
                 }
                 else if (strncmp(cmdBuf, "LB12:", 5) == 0)
                 {
                     limitBat12v = atoi(cmdBuf + 5);
+                    sanitizeTempLimits();
+                    if (isAiModeActive == true)
+                    {
+                        aiMaxVoltage = calculateAiMaxVoltage();
+                    }
                     pendingTempLimitSave = true;
                     lastTempLimitSaveTime = millis();
                 }
@@ -1073,11 +1195,15 @@ void setup()
     
     currentVoltage    = 0;
     isAiModeActive    = false;
+    aiModeType        = 0;
+    phoneBatteryTemp  = -999.0f;
+    batteryProtectionLevel = -1;
 
     limitHot          = flashMemory.getInt("limit_hot", 45);
     limitBat5v        = flashMemory.getInt("limit_b5", 25);
     limitBat9v        = flashMemory.getInt("limit_b9", 30);
     limitBat12v       = flashMemory.getInt("limit_b12", 35);
+    sanitizeTempLimits();
     
     flashMemory.getString("ota_ssid", otaSsid, 64); 
     flashMemory.getString("ota_pass", otaPass, 64); 
@@ -1286,49 +1412,47 @@ void loop()
         }
     }
 
-    if (isAiModeActive == true) 
+    if (isAiModeActive == true)
     {
-        if (currentTemperature >= (float)limitHot && currentVoltage > 0) 
+        if (currentTemperature >= (float)limitHot && currentVoltage > 0)
         {
-            if (currentVoltage == 2) 
-            {
-                aiMaxVoltage = 1; 
-            }
-            else if (currentVoltage == 1) 
-            {
-                aiMaxVoltage = 0; 
-            }
+            aiMaxVoltage = calculateAiMaxVoltage();
+            targetTransitionVoltage = 0;
+            isVoltageTransitioning = true;
+            voltageTransitionStartTime = millis();
 
-            targetTransitionVoltage      = 0; 
-            isVoltageTransitioning       = true; 
-            voltageTransitionStartTime   = millis(); 
-            
-            digitalWrite(PIN_OPTO_9V,  LOW); 
-            digitalWrite(PIN_OPTO_12V, LOW); 
-            
-            lastAiCheckTime = millis(); 
+            digitalWrite(PIN_OPTO_9V, LOW);
+            digitalWrite(PIN_OPTO_12V, LOW);
+
+            lastAiCheckTime = millis();
         }
-        else if (millis() - lastAiCheckTime >= 5000) 
+        else if (millis() - lastAiCheckTime >= 5000)
         {
-            lastAiCheckTime = millis(); 
-            int calcTarget  = currentVoltage; 
+            lastAiCheckTime = millis();
+            aiMaxVoltage = calculateAiMaxVoltage();
+            int calcTarget = currentVoltage;
 
-            if (currentTemperature <= (float)(limitHot - 5)) 
+            if (currentVoltage > aiMaxVoltage)
             {
-                if (currentVoltage < aiMaxVoltage) 
+                calcTarget = aiMaxVoltage;
+            }
+            else if (currentTemperature <= (float)(limitHot - 5) && currentVoltage < aiMaxVoltage)
+            {
+                calcTarget = currentVoltage + 1;
+                if (calcTarget > aiMaxVoltage)
                 {
-                    calcTarget = currentVoltage + 1; 
+                    calcTarget = aiMaxVoltage;
                 }
             }
 
-            if (calcTarget != currentVoltage && isVoltageTransitioning == false) 
+            if (calcTarget != currentVoltage && isVoltageTransitioning == false)
             {
-                targetTransitionVoltage      = calcTarget; 
-                isVoltageTransitioning       = true; 
-                voltageTransitionStartTime   = millis(); 
+                targetTransitionVoltage = calcTarget;
+                isVoltageTransitioning = true;
+                voltageTransitionStartTime = millis();
 
-                digitalWrite(PIN_OPTO_9V,  LOW); 
-                digitalWrite(PIN_OPTO_12V, LOW); 
+                digitalWrite(PIN_OPTO_9V, LOW);
+                digitalWrite(PIN_OPTO_12V, LOW);
             }
         }
     }
@@ -1390,12 +1514,15 @@ void loop()
         }
     }
 
-    if (isBleActive == true && isBleClientConnected == true)
+    if (isBleActive == true && isBleClientConnected == true &&
+        millis() - lastBleDeltaCheckTime >= 50)
     {
-        if (millis() - lastTempSyncTime >= 2000)
+        lastBleDeltaCheckTime = millis();
+
+        if (millis() - lastTempSyncTime >= 1000)
         {
             lastTempSyncTime = millis(); 
-            if (fabs(currentTemperature - lastSentTemp) >= 0.2f)
+            if (fabs(currentTemperature - lastSentTemp) >= 0.1f)
             {
                 sendTempToWeb(); 
                 lastSentTemp = currentTemperature; 
